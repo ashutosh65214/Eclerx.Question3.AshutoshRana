@@ -28,12 +28,11 @@ namespace Eclerx.Question3.AshutoshRana
         {
             using (obj = new SqlConnection(ConfigurationManager.ConnectionStrings["HRCon"].ConnectionString))
             {
-                using(cmd=new SqlCommand("usp_AddBank", obj))
+                using(cmd=new SqlCommand("usp_Fetch", obj))
                 {
                     cmd.CommandType=CommandType.StoredProcedure;
-                    cmd.Parameters.AddWithValue("@AccountN0", TxtAccountNo.Text);
-                    cmd.Parameters.AddWithValue("@TransactionType",ComboTransactionType.Text);
-                    cmd.Parameters.AddWithValue("@Amount",TxtAmount.Text);
+                    cmd.Parameters.AddWithValue("@AccountNo", TxtAccountNo.Text);
+                    cmd.Parameters.AddWithValue("@Amount", TxtAmount.Text);
                     if (obj.State == ConnectionState.Closed)
                     {
                         obj.Open();
@@ -52,27 +51,85 @@ namespace Eclerx.Question3.AshutoshRana
         {
             using (obj = new SqlConnection(ConfigurationManager.ConnectionStrings["HRCon"].ConnectionString))
             {
-                using(adapter=new SqlDataAdapter("Select * from AccountDetails", obj))
+                using(cmd=new SqlCommand("Select Amount from AccountDetails where AccountNo=@AccountNo", obj))
                 {
-                    ds=new DataSet();
-                    adapter.Fill(ds, "AccountDetails");
-                    DataRow dr = ds.Tables["AccountDetails"].NewRow();
-
-                    if (ComboTransactionType.SelectedItem.ToString() == "Debit")
+                    
+                    using (adapter=new SqlDataAdapter())
                     {
-                        dr["AccountNo"]=TxtAccountNo.Text;
-                        dr["TransactionType"]=ComboTransactionType.SelectedItem.ToString();
-                        dr["Amount"] = int.Parse(dr["Amount"].ToString()) - int.Parse(TxtAmount.Text);
+                       
+                        SqlCommandBuilder cbd = new SqlCommandBuilder();
+                        cmd.Parameters.AddWithValue("@AccountNo", TxtAccountNo.Text);
+
+                        obj.Open();
+                        SqlDataReader reader = cmd.ExecuteReader();
+                        string amt = "";
+                        if (reader.Read())
+                        {
+                            amt = reader["Amount"].ToString();
+                            LblShowBalanceAmount.Text = amt;
+                        }
+                        reader.Close();
+                        using (cmd = new SqlCommand("Update AccountDetails set Amount=@Amount where AccountNo=@AccountNo ", obj))
+                        {
+                            double amount = 0;
+                            if (ComboTransactionType.SelectedItem != null)
+                            {
+                                if (ComboTransactionType.SelectedItem.Equals("Debit"))
+                                {
+                                    if (ds != null)
+                                    {
+                                        amount = Convert.ToDouble(amt) - Convert.ToDouble(TxtAmount.Text);
+                                        LblShowBalanceAmount.Text = Convert.ToString(amount);
+
+                                    }
+                                    else
+                                    {
+                                        MessageBox.Show("Account doesnt exist");
+                                    }
+
+                                }
+                                else if (ComboTransactionType.SelectedItem.Equals("Credit"))
+                                {
+                                    if(ds != null)
+                                    {
+                                        amount = Convert.ToDouble(amt) + Convert.ToDouble(TxtAmount.Text);
+                                        LblShowBalanceAmount.Text = Convert.ToString(amount);
+                                    }
+
+                                }
+                                
+
+                            }
+                            else
+                            {
+                                MessageBox.Show("Please enter some value");
+                            }
+                            cmd.Parameters.AddWithValue("@AccountNo", TxtAccountNo.Text);
+                            cmd.Parameters.AddWithValue("@Amount", Convert.ToString(amount));
+                            DataTable dt = new DataTable();
+                            cmd.Connection = obj;
+                            adapter.SelectCommand = cmd;
+
+                            ds = new DataSet();
+                            adapter.Fill(ds, "Account");
+
+
+
+
+                        }
+                        
+
                     }
-                    else if(ComboTransactionType.SelectedItem.ToString() == "Credit")
+
+
+
+                    if (obj.State == ConnectionState.Closed)
                     {
-                        dr["AccountNo"] = TxtAccountNo.Text;
-                        dr["TransactionType"] = ComboTransactionType.SelectedItem.ToString();
-                        dr["Amount"] = int.Parse(dr["Amount"].ToString()) + int.Parse(TxtAmount.Text);
-
-
+                        obj.Open();
                     }
-                    LblBalanceAmount=dr
+                    cmd.ExecuteNonQuery();
+
+
                 }
             }
 
